@@ -1,0 +1,44 @@
+body {
+  font-family: sans-serif;
+  padding: 2rem;
+  background-color: #fafafa;
+  color: #333;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+textarea {
+  padding: 1rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.app.dark {
+  background-color: #1e1e1e;
+  color: #f5f5f5;
+}
+
+.app.dark textarea,
+.app.dark pre {
+  background-color: #2c2c2c;
+  color: #f5f5f5;
+}
+
+.app.dark button {
+  background-color: #444;
+}
+
+.app.dark button:hover {
+  background-color: #666;
+}
