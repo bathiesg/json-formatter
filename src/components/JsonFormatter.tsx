@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from 'react';
 import JsonTreeViewer from './JsonTreeViewer';
-
 import * as yaml from 'js-yaml';
+import './JsonFormatter.css';
 
 interface JsonFormatterProps
 {
@@ -10,154 +11,137 @@ interface JsonFormatterProps
 
 const JsonFormatter = ({ darkMode }: JsonFormatterProps) =>
 {
-  const [input, setInput] = useState(() => localStorage.getItem('json_input') || '');
-  const [input2, setInput2] = useState('');
+  const [input, setInput] = useState('');
+  const [parsed, setParsed] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'text' | 'tree'>('text');
   const [yamlInput, setYamlInput] = useState('');
-  const [formatted, setFormatted] = useState('');
-  const [error, setError] = useState('');
-  const [comparisonResult, setComparisonResult] = useState<string | null>(null);
 
-  // Charger depuis localStorage
-  // (handled in useState initializer)
-
-  useEffect(() =>
+  // Valider le JSON dès qu'on tape
+  // moved logic to handleInputChange
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) =>
   {
-    localStorage.setItem('json_input', input);
-  }, [input]);
-
-  const handleFormat = () =>
-  {
+    const value = e.target.value;
+    setInput(value);
     try {
-      const parsed = JSON.parse(input);
-      const pretty = JSON.stringify(parsed, null, 2);
-      setFormatted(pretty);
-      setError('');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError('❌ JSON invalide : ' + message);
-      setFormatted('');
+      const result = JSON.parse(value);
+      setParsed(result);
+      setError(null);
+    } catch (err: any) {
+      setParsed(null);
+      setError('❌ JSON invalide : ' + err.message);
     }
+  };
+
+  // Changer de mode (Text / Tree)
+  const handleModeChange = (newMode: 'text' | 'tree') =>
+  {
+    setMode(newMode);
   };
 
   const handleCopy = async () =>
   {
-    if (formatted) {
-      await navigator.clipboard.writeText(formatted);
-      alert('📋 JSON copié dans le presse-papiers');
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(parsed ?? input, null, 2));
+      alert('📋 Copié dans le presse-papiers');
+    } catch {
+      alert('❌ Impossible de copier');
     }
   };
 
   const handleExport = () =>
   {
-    const blob = new Blob([formatted], { type: 'application/json' });
+    if (!parsed) return;
+    const blob = new Blob([JSON.stringify(parsed, null, 2)], {
+      type: 'application/json',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'formatted.json';
+    a.download = 'data.json';
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleMinify = () =>
-  {
-    try {
-      const parsed = JSON.parse(input);
-      const minified = JSON.stringify(parsed);
-      setFormatted(minified);
-      setError('');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError('❌ JSON invalide : ' + message);
-      setFormatted('');
-    }
-  };
-
-  const handleCompare = () =>
-  {
-    try {
-      const obj1 = JSON.parse(input);
-      const obj2 = JSON.parse(input2);
-      setComparisonResult(
-        JSON.stringify(obj1) === JSON.stringify(obj2)
-          ? '✅ Les deux JSON sont identiques.'
-          : '❌ Les deux JSON sont différents.'
-      );
-    } catch {
-      setComparisonResult('⚠️ Veuillez coller deux JSON valides.');
-    }
   };
 
   const handleYamlConvert = () =>
   {
     try {
       const result = yaml.load(yamlInput);
-      const converted = JSON.stringify(result, null, 2);
-      setFormatted(converted);
-      setError('');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError('❌ YAML invalide : ' + message);
-      setFormatted('');
+      const json = JSON.stringify(result, null, 2);
+      setInput(json);
+      setYamlInput('');
+    } catch (err: any) {
+      alert('❌ YAML invalide : ' + err.message);
     }
   };
 
   return (
-    <div className="json-formatter">
-      <textarea
-        placeholder="Collez votre JSON ici..."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        rows={10}
-        style={{ width: '100%', fontFamily: 'monospace' }}
-      />
-      <div style={{ marginTop: '1rem' }}>
-        <button onClick={handleFormat}>Valider / Formater</button>
-        <button onClick={handleMinify} style={{ marginLeft: '0.5rem' }}>
-          Minifier
+    <div className={`json-formatter ${darkMode ? 'dark-theme' : ''}`}>
+      {/* Switch boutons */}
+      <div style={{ marginBottom: '1rem' }}>
+        <button
+          onClick={() => handleModeChange('text')}
+          style={{ marginRight: '0.5rem', backgroundColor: mode === 'text' ? '#007bff' : '#ccc', color: '#fff' }}
+        >
+          Text
         </button>
-        <button onClick={handleCopy} style={{ marginLeft: '0.5rem' }}>
-          Copier
+        <button
+          onClick={() => handleModeChange('tree')}
+          style={{ marginRight: '1rem', backgroundColor: mode === 'tree' ? '#007bff' : '#ccc', color: '#fff' }}
+        >
+          Tree
         </button>
-        <button onClick={handleExport} style={{ marginLeft: '0.5rem' }}>
-          Exporter .json
+
+        <button onClick={handleCopy} style={{ marginRight: '0.5rem' }}>
+          📋 Copier
+        </button>
+        <button onClick={handleExport}>
+          💾 Télécharger
         </button>
       </div>
 
-      {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
-
-      {formatted && (
-        <div style={{ marginTop: '1rem' }}>
-          <h3>📄 Résultat :</h3>
-          <div style={{ padding: '1rem', backgroundColor: darkMode ? '#1e1e1e' : '#f5f5f5', borderRadius: '6px' }}>
-            <JsonTreeViewer data={JSON.parse(formatted)} />
-          </div>
+      {mode === 'text' ? (
+        <>
+          <textarea
+            placeholder="Collez ou écrivez votre JSON ici..."
+            value={input}
+            onChange={handleInputChange}
+            rows={20}
+            style={{ width: '100%', fontFamily: 'monospace', padding: '1rem' }}
+          />
+          {error && <p style={{ color: 'red', marginTop: '0.5rem' }}>{error}</p>}
+        </>
+      ) : (
+        <div
+          style={{
+            padding: '1rem',
+            backgroundColor: darkMode ? '#1e1e1e' : '#f5f5f5',
+            fontFamily: 'monospace',
+            borderRadius: '6px',
+          }}
+        >
+          {parsed ? (
+            <JsonTreeViewer data={parsed} />
+          ) : (
+            <p style={{ color: 'red' }}>{error || 'JSON invalide'}</p>
+          )}
         </div>
       )}
 
-      <h3 style={{ marginTop: '2rem' }}>🔍 Comparaison JSON</h3>
-      <textarea
-        placeholder="Deuxième JSON à comparer..."
-        value={input2}
-        onChange={(e) => setInput2(e.target.value)}
-        rows={10}
-        style={{ width: '100%', fontFamily: 'monospace' }}
-      />
-      <button onClick={handleCompare} style={{ marginTop: '0.5rem' }}>
-        Comparer les deux JSON
-      </button>
-      {comparisonResult && <p style={{ marginTop: '0.5rem' }}>{comparisonResult}</p>}
-
-      <h3 style={{ marginTop: '2rem' }}>🔄 YAML → JSON</h3>
-      <textarea
-        placeholder="Coller du YAML ici..."
-        value={yamlInput}
-        onChange={(e) => setYamlInput(e.target.value)}
-        rows={10}
-        style={{ width: '100%', fontFamily: 'monospace' }}
-      />
-      <button onClick={handleYamlConvert} style={{ marginTop: '0.5rem' }}>
-        Convertir YAML → JSON
-      </button>
+      {/* YAML converter */}
+      <div style={{ marginTop: '2rem' }}>
+        <h3>🔄 Convertir YAML → JSON</h3>
+        <textarea
+          placeholder="Collez ici du YAML..."
+          value={yamlInput}
+          onChange={(e) => setYamlInput(e.target.value)}
+          rows={10}
+          style={{ width: '100%', fontFamily: 'monospace', padding: '1rem' }}
+        />
+        <button onClick={handleYamlConvert} style={{ marginTop: '0.5rem' }}>
+          ➡️ Convertir
+        </button>
+      </div>
     </div>
   );
 };
